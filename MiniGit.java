@@ -1,4 +1,6 @@
 import java.io.File;
+import java.io.*;
+import java.nio.file.*;
 
 
 public class MiniGit {
@@ -22,6 +24,30 @@ public class MiniGit {
       System.out.println("Failed to initialize repository.");
     }
   }
+
+  public static void addFile(String filename){
+    File file=new File(filename);
+    if(!file.exists()){
+      System.out.println("File does not exist: " + filename);
+      return;
+    }
+    File stagingDir=new File(".minigit/staging");
+
+    if(!stagingDir.exists()){
+      System.out.println("Staging area does not exist. Please initialize the repository first.");
+      return;
+    }
+    File destFile=new File(stagingDir, file.getName());
+
+    try{
+      Files.copy(file.toPath(), destFile.toPath(),StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+      System.out.println("Error occurred while adding file: " + filename);
+    }
+  }
+
+
+
   public static void main(String[] args) {
 
     if (args.length == 0) {
@@ -32,14 +58,13 @@ public class MiniGit {
 
     switch (command) {
       case "init":
-        System.out.println("Intializing repository....");
         initRepository();
         break;
       case "add":
         if (args.length < 2) {
           System.out.println("Please provide a file name");
         } else {
-          System.out.println("Adding file:" + args[1]);
+          addFile(args[1]);
         }
         break;
       case "commit":
