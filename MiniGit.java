@@ -1,6 +1,29 @@
+import java.io.File;
+
+
 public class MiniGit {
+
+  public static void initRepository(){
+    File repo=new File(".minigit");
+    if(repo.exists()){
+      System.out.println("Repository already exists.");
+      return;
+    }
+
+    boolean created=repo.mkdir();
+    if(created){
+      new File(".minigit/objects").mkdir();
+      new File(".minigit/commits").mkdir();
+      new File(".minigit/staging").mkdir();
+
+      System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
+    }
+    else{
+      System.out.println("Failed to initialize repository.");
+    }
+  }
   public static void main(String[] args) {
-    System.out.println("Welcome to MiniGit!");
+
     if (args.length == 0) {
       System.out.println("No command Provided");
       return;
@@ -10,6 +33,7 @@ public class MiniGit {
     switch (command) {
       case "init":
         System.out.println("Intializing repository....");
+        initRepository();
         break;
       case "add":
         if (args.length < 2) {
