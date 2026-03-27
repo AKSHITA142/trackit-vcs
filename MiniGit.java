@@ -1,9 +1,9 @@
-import java.io.File;
 import java.io.*;
 import java.nio.file.*;
-
+import java.util.*;
 
 public class MiniGit {
+
 
   public static void initRepository(){
     File repo=new File(".minigit");
@@ -24,9 +24,10 @@ public class MiniGit {
       System.out.println("Failed to initialize repository.");
     }
   }
-
-  public static void addFile(String filename){
+   
+  public static void add(String filename){
     File file=new File(filename);
+    System.out.println(file.getAbsolutePath());
     if(!file.exists()){
       System.out.println("File does not exist: " + filename);
       return;
@@ -47,7 +48,6 @@ public class MiniGit {
   }
 
 
-
   public static void main(String[] args) {
 
     if (args.length == 0) {
@@ -64,7 +64,7 @@ public class MiniGit {
         if (args.length < 2) {
           System.out.println("Please provide a file name");
         } else {
-          addFile(args[1]);
+          add(args[1]);
         }
         break;
       case "commit":
