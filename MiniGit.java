@@ -1,7 +1,8 @@
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
-
+import java.text.SimpleDateFormat;
+import java.util.Date;
 public class MiniGit {
 
 
@@ -47,6 +48,50 @@ public class MiniGit {
     }
   }
 
+  public static void commit(String message){
+
+    File stagingDir=new File(".minigit/staging");
+
+    if(!stagingDir.exists() || stagingDir.listFiles().length == 0){
+      System.out.println("Nothing to commit.");
+      return;
+    }
+    File commitsDir=new File(".minigit/commits");
+
+    //new Commit Folder(time stmap based)
+
+    String commitId=new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+    File newCommit = new File(commitsDir, commitId);
+    newCommit.mkdir();
+
+    //copy files from staging to commit 
+
+    for(File file : stagingDir.listFiles()){
+      File dest=new File(newCommit, file.getName());
+      try{
+        Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      } catch (IOException e) {
+        System.out.println("Error occurred while committing file: " + file.getName());
+      }
+    }
+
+      //save commit message
+      try{
+        FileWriter writer=new FileWriter(new File(newCommit, "message.txt"));
+        writer.write(message);
+        writer.close();
+      } catch (IOException e) {
+        System.out.println("Error occurred while saving commit message.");
+      }
+
+      //clear staging area
+      for(File file : stagingDir.listFiles()){
+        file.delete();
+      }
+      System.out.println("Commit successful with ID: " + commitId);
+  }
+
+
 
   public static void main(String[] args) {
 
@@ -71,7 +116,7 @@ public class MiniGit {
         if (args.length < 2) {
           System.out.println("Please provide a commit message");
         } else {
-          System.out.println("Commiting with message: " + args[1]);
+          commit(args[1]);
         }
         break;
       case "status":
