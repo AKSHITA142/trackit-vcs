@@ -1,8 +1,8 @@
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import utils.HashUtil;
+
 public class MiniGit {
 
 
@@ -48,48 +48,64 @@ public class MiniGit {
     }
   }
 
-  public static void commit(String message){
+ public static void commit(String message){
 
-    File stagingDir=new File(".minigit/staging");
+    File stagingDir = new File(".minigit/staging");
 
     if(!stagingDir.exists() || stagingDir.listFiles().length == 0){
-      System.out.println("Nothing to commit.");
-      return;
+        System.out.println("Nothing to commit.");
+        return;
     }
-    File commitsDir=new File(".minigit/commits");
 
-    //new Commit Folder(time stmap based)
+    File commitsDir = new File(".minigit/commits");
 
-    String commitId=new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+    // 🔥 STEP 1: Build data for hashing
+    StringBuilder data = new StringBuilder();
+    data.append(message);
+
+    for(File file : stagingDir.listFiles()){
+        data.append(file.getName());
+        try{
+            data.append(new String(Files.readAllBytes(file.toPath())));
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + file.getName());
+        }
+    }
+
+    // 🔥 STEP 2: Generate hash (instead of timestamp)
+    String commitId = HashUtil.generateHash(data.toString());
+
+    // 🔥 STEP 3: Create commit folder using hash
     File newCommit = new File(commitsDir, commitId);
     newCommit.mkdir();
 
     //copy files from staging to commit 
-
     for(File file : stagingDir.listFiles()){
-      File dest=new File(newCommit, file.getName());
-      try{
-        Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      } catch (IOException e) {
-        System.out.println("Error occurred while committing file: " + file.getName());
-      }
+        File dest = new File(newCommit, file.getName());
+        try{
+            Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            System.out.println("Error occurred while committing file: " + file.getName());
+        }
     }
 
-      //save commit message
-      try{
-        FileWriter writer=new FileWriter(new File(newCommit, "message.txt"));
-        writer.write(message);
+    //save commit message + hash (better)
+    try{
+        FileWriter writer = new FileWriter(new File(newCommit, "meta.txt"));
+        writer.write("Commit ID: " + commitId + "\n");
+        writer.write("Message: " + message + "\n");
         writer.close();
-      } catch (IOException e) {
+    } catch (IOException e) {
         System.out.println("Error occurred while saving commit message.");
-      }
+    }
 
-      //clear staging area
-      for(File file : stagingDir.listFiles()){
+    //clear staging area
+    for(File file : stagingDir.listFiles()){
         file.delete();
-      }
-      System.out.println("Commit successful with ID: " + commitId);
-  }
+    }
+
+    System.out.println("Commit successful with ID: " + commitId.substring(0,7));
+}
 
 
 
