@@ -33,6 +33,11 @@ public class CheckoutCommand {
             return;
         }
 
+        if (commitId == null || commitId.isEmpty()) {
+            System.out.println("Branch has no commits yet.");
+            return;
+        }
+
         File commitDir = new File(".minigit/commits/" + commitId);
 
         if (!commitDir.exists()) {
@@ -40,17 +45,10 @@ public class CheckoutCommand {
             return;
         }
 
-        // 🔥 Clear working directory (except .minigit)
-        File workingDir = new File(".");
-        for (File file : workingDir.listFiles()) {
-            if (file.getName().equals(".minigit")) continue;
-            if (file.isFile()) file.delete();
-        }
-
-        // 🔥 Copy commit files to working dir
+        // ✅ ONLY restore files (NO deletion)
         for (File file : commitDir.listFiles()) {
 
-            if (file.getName().equals("message.txt")) continue;
+            if (file.getName().equals("meta.txt")) continue;
 
             File dest = new File(file.getName());
 
