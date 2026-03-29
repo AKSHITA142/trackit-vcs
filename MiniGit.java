@@ -2,6 +2,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.text.SimpleDateFormat;
+
 import java.util.Date;
 import java.security.MessageDigest;
 import commands.BranchCommand;
@@ -113,6 +114,52 @@ public class MiniGit {
 }
 
 
+  //showlog()
+
+  public static void showLog() {
+
+    File commitsDir = new File(".minigit/commits");
+
+    if (!commitsDir.exists()) {
+        System.out.println("Repository not initialized.");
+        return;
+    }
+
+    File[] commits = commitsDir.listFiles();
+
+    if (commits == null || commits.length == 0) {
+        System.out.println("No commits found.");
+        return;
+    }
+
+    // Sort commits (latest first)
+    Arrays.sort(commits, (a, b) -> b.getName().compareTo(a.getName()));
+
+    for (File commit : commits) {
+
+        File messageFile = new File(commit, "message.txt");
+
+        String message = "No message";
+
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(messageFile));
+            message = reader.readLine();
+            reader.close();
+        } catch (IOException e) {
+            System.out.println("Error reading commit message.");
+        }
+
+        String commitId = commit.getName();
+        String shortId = commitId.length() > 7 ? commitId.substring(0, 7) : commitId;
+
+      System.out.println("commit " + shortId);
+      System.out.println("--------------------------------");
+      System.out.println("Message: " + message);
+      System.out.println();
+    }
+}
+
+
 
   public static void main(String[] args) {
 
@@ -144,7 +191,7 @@ public class MiniGit {
         System.out.println("Checking repository status...");
         break;
       case "log":
-        System.out.println("Displaying commit history...");
+        showLog();
         break;
 
       case "branch":
