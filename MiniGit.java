@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat;
 import java.security.MessageDigest;
 import commands.BranchCommand;
 import commands.CheckoutCommand;
+import commands.StashCommand;
 import core.HeadManager;
 import utils.HashUtil;
 
@@ -20,7 +21,7 @@ public class MiniGit {
         System.out.println("Repository already exists.");
         return;
     }
-
+    
     boolean created = repo.mkdir();
 
     if (created) {
@@ -29,6 +30,7 @@ public class MiniGit {
         new File(".minigit/objects").mkdir();
         new File(".minigit/commits").mkdir();
         new File(".minigit/staging").mkdir();
+        new File(".minigit/stash").mkdir();
 
         // ✅ Create branches folder
         File branchDir = new File(".minigit/branches");
@@ -235,6 +237,13 @@ public class MiniGit {
         break;
       case "checkout":
         CheckoutCommand.execute(args);
+        break;
+      case "stash":
+        if (args.length > 1 && args[1].equals("apply")) {
+            StashCommand.apply();
+        } else {
+            StashCommand.save();
+        }
         break;
         
       default:
