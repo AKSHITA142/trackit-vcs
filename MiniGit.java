@@ -3,6 +3,9 @@ import java.nio.file.*;
 import java.util.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.security.MessageDigest;
+import commands.BranchCommand;
+import commands.CheckoutCommand;
 public class MiniGit {
 
 
@@ -125,6 +128,14 @@ public class MiniGit {
       case "log":
         System.out.println("Displaying commit history...");
         break;
+
+      case "branch":
+        BranchCommand.execute(args);
+        break;
+      case "checkout":
+        CheckoutCommand.execute(args);
+        break;
+        
       default:
         System.out.println("Unknown command: " + command);
     }
