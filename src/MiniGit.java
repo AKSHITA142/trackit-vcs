@@ -2,36 +2,53 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.text.SimpleDateFormat;
-
-import java.util.Date;
 import java.security.MessageDigest;
 import commands.BranchCommand;
 import commands.CheckoutCommand;
+import core.HeadManager;
 import utils.HashUtil;
+import commands.MergeCommand;
 
 public class MiniGit {
 
+/// init 
+ public static void initRepository() {
+    File repo = new File(".minigit");
 
-  public static void initRepository(){
-    File repo=new File(".minigit");
-    if(repo.exists()){
-      System.out.println("Repository already exists.");
-      return;
+    if (repo.exists()) {
+        System.out.println("Repository already exists.");
+        return;
     }
 
-    boolean created=repo.mkdir();
-    if(created){
-      new File(".minigit/objects").mkdir();
-      new File(".minigit/commits").mkdir();
-      new File(".minigit/staging").mkdir();
+    if (repo.mkdir()) {
 
-      System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
+        // existing folders
+        new File(".minigit/objects").mkdir();
+        new File(".minigit/commits").mkdir();
+        new File(".minigit/staging").mkdir();
+
+        //  NEW: branches folder
+        new File(".minigit/branches").mkdir();
+
+        //  NEW: create main branch
+        File mainBranch = new File(".minigit/branches/main");
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(mainBranch))) {
+            writer.write(""); // no commit yet
+        } catch (IOException e) {
+            System.out.println("Error creating main branch.");
+        }
+
+        //  NEW: set HEAD to main
+        HeadManager.setCurrentBranch("main");
+
+        System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
+
+    } else {
+        System.out.println("Failed to initialize repository.");
     }
-    else{
-      System.out.println("Failed to initialize repository.");
-    }
-  }
+}
    
+  //add
   public static void add(String filename){
     File file=new File(filename);
     System.out.println(file.getAbsolutePath());
@@ -54,6 +71,8 @@ public class MiniGit {
     }
   }
 
+
+  //commit
  public static void commit(String message){
 
     File stagingDir = new File(".minigit/staging");
@@ -78,10 +97,10 @@ public class MiniGit {
         }
     }
 
-    // 🔥 STEP 2: Generate hash (instead of timestamp)
+    //  STEP 2: Generate hash (instead of timestamp)
     String commitId = HashUtil.generateHash(data.toString());
 
-    // 🔥 STEP 3: Create commit folder using hash
+    //  STEP 3: Create commit folder using hash
     File newCommit = new File(commitsDir, commitId);
     newCommit.mkdir();
 
@@ -160,6 +179,68 @@ public class MiniGit {
 }
 
 
+//status
+
+public static void status() {
+
+    File repo = new File(".minigit");
+    if (!repo.exists()) {
+        System.out.println("Repository not initialized.");
+        return;
+    }
+
+    System.out.println("=== MiniGit Status ===\n");
+
+    // Current Branch
+    String currentBranch = HeadManager.getCurrentBranch();
+    System.out.println("Current Branch: " + currentBranch + "\n");
+
+    File stagingDir = new File(".minigit/staging");
+    File workingDir = new File(".");
+
+    //  Staged Files
+    System.out.println("Staged Files:");
+    File[] stagedFiles = stagingDir.listFiles();
+
+    Set<String> stagedNames = new HashSet<>();
+
+    if (stagedFiles != null && stagedFiles.length > 0) {
+        for (File file : stagedFiles) {
+            System.out.println("- " + file.getName());
+            stagedNames.add(file.getName());
+        }
+    } else {
+        System.out.println("No files staged.");
+    }
+
+    //  Untracked Files
+    System.out.println("\nUntracked Files:");
+    File[] workingFiles = workingDir.listFiles();
+
+    boolean foundUntracked = false;
+
+    if (workingFiles != null) {
+        for (File file : workingFiles) {
+
+            if (file.getName().equals(".minigit")) continue;
+            if (file.getName().endsWith(".java")) continue;
+            if (file.getName().endsWith(".class")) continue;
+            if (file.isDirectory()) continue;
+
+            if (!stagedNames.contains(file.getName())) {
+                System.out.println("- " + file.getName());
+                foundUntracked = true;
+            }
+        }
+    }
+
+    if (!foundUntracked) {
+        System.out.println("No untracked files.");
+    }
+}
+
+
+
 
   public static void main(String[] args) {
 
@@ -189,6 +270,7 @@ public class MiniGit {
         break;
       case "status":
         System.out.println("Checking repository status...");
+        status();
         break;
       case "log":
         showLog();
@@ -200,6 +282,9 @@ public class MiniGit {
       case "checkout":
         CheckoutCommand.execute(args);
         break;
+      case "merge":
+        MergeCommand.execute(args);
+      break;
         
       default:
         System.out.println("Unknown command: " + command);
