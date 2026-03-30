@@ -5,10 +5,7 @@ import java.text.SimpleDateFormat;
 import java.security.MessageDigest;
 import commands.BranchCommand;
 import commands.CheckoutCommand;
-<<<<<<< HEAD:src/MiniGit.java
-=======
 import commands.StashCommand;
->>>>>>> origin/main:MiniGit.java
 import core.HeadManager;
 import utils.HashUtil;
 import commands.MergeCommand;
@@ -16,104 +13,75 @@ import commands.MergeCommand;
 public class MiniGit {
 
 /// init 
- public static void initRepository() {
-    File repo = new File(".minigit");
+ 
 
-<<<<<<< HEAD:src/MiniGit.java
-    if (repo.exists()) {
-        System.out.println("Repository already exists.");
-        return;
-    }
-
-    if (repo.mkdir()) {
-
-        // existing folders
-        new File(".minigit/objects").mkdir();
-        new File(".minigit/commits").mkdir();
-        new File(".minigit/staging").mkdir();
-
-        //  NEW: branches folder
-        new File(".minigit/branches").mkdir();
-
-        //  NEW: create main branch
-        File mainBranch = new File(".minigit/branches/main");
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(mainBranch))) {
-            writer.write(""); // no commit yet
-        } catch (IOException e) {
-            System.out.println("Error creating main branch.");
-        }
-
-        //  NEW: set HEAD to main
-        HeadManager.setCurrentBranch("main");
-
-        System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
-
-    } else {
-        System.out.println("Failed to initialize repository.");
-    }
-}
-   
-  //add
-  public static void add(String filename){
-    File file=new File(filename);
-    System.out.println(file.getAbsolutePath());
-    if(!file.exists()){
-      System.out.println("File does not exist: " + filename);
-      return;
-    }
-    File stagingDir=new File(".minigit/staging");
-=======
   public static void initRepository() {
-
     File repo = new File(".minigit");
 
-    // ✅ Check if repo already exists FIRST
     if (repo.exists()) {
         System.out.println("Repository already exists.");
         return;
     }
-    
+
     boolean created = repo.mkdir();
-
-    if (created) {
-
-        // ✅ Create main folders
-        new File(".minigit/objects").mkdir();
-        new File(".minigit/commits").mkdir();
-        new File(".minigit/staging").mkdir();
-        new File(".minigit/stash").mkdir();
-
-        // ✅ Create branches folder
-        File branchDir = new File(".minigit/branches");
-        branchDir.mkdir();
-
-        // ✅ Create main branch file
-        File mainBranch = new File(".minigit/branches/main");
-
-        try (FileWriter writer = new FileWriter(mainBranch)) {
-            writer.write("");  // initially no commit
-        } catch (IOException e) {
-            System.out.println("Error creating main branch.");
-        }
-
-        // ✅ Create HEAD file pointing to main
-        File headFile = new File(".minigit/HEAD");
-
-        try (FileWriter writer = new FileWriter(headFile)) {
-            writer.write("main");
-        } catch (IOException e) {
-            System.out.println("Error setting HEAD.");
-        }
-
-        System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
-      
-    } else {
+    if (!created) {
         System.out.println("Failed to initialize repository.");
+        return;
     }
+
+    // Create main folders
+    new File(".minigit/objects").mkdir();
+    new File(".minigit/commits").mkdir();
+    new File(".minigit/staging").mkdir();
+    new File(".minigit/stash").mkdir();
+    File branchDir = new File(".minigit/branches");
+    branchDir.mkdir();
+
+    // Create HEAD file pointing to main
+    File headFile = new File(".minigit/HEAD");
+    try (FileWriter writer = new FileWriter(headFile)) {
+        writer.write("main");
+    } catch (IOException e) {
+        System.out.println("Error setting HEAD.");
+    }
+
+    // Create main branch file
+    File mainBranch = new File(".minigit/branches/main");
+
+    try {
+        // Step 1: create initial empty commit
+        String initialCommitId = createInitialCommit();
+        // Step 2: write commit ID to main branch
+        try (FileWriter writer = new FileWriter(mainBranch)) {
+            writer.write(initialCommitId);
+        }
+    } catch (IOException e) {
+        System.out.println("Error creating main branch.");
+    }
+
+    System.out.println("Repository initialized successfully at: " + repo.getAbsolutePath());
+}
+
+/**
+ * Creates an initial empty commit to avoid empty branches.
+ */
+private static String createInitialCommit() throws IOException {
+    // Generate a unique commit ID (could be timestamp-based)
+    String commitId = "c" + System.currentTimeMillis();
+
+    File commitDir = new File(".minigit/commits/" + commitId);
+    commitDir.mkdir();
+
+    // Optional: create meta file to store commit message
+    File meta = new File(commitDir, "meta.txt");
+    try (FileWriter writer = new FileWriter(meta)) {
+        writer.write("Initial commit\n");
+    }
+
+    return commitId;
 }
    
   public static void add(String filename) {
->>>>>>> origin/main:MiniGit.java
 
     File file = new File(filename);
 
@@ -121,14 +89,6 @@ public class MiniGit {
         System.out.println("File does not exist: " + filename);
         return;
     }
-<<<<<<< HEAD:src/MiniGit.java
-  }
-
-
-  //commit
- public static void commit(String message){
-=======
->>>>>>> origin/main:MiniGit.java
 
     File stagingDir = new File(".minigit/staging");
 
@@ -160,7 +120,7 @@ public class MiniGit {
 
     File commitsDir = new File(".minigit/commits");
 
-    // 🔥 Build data for hashing
+    //  Build data for hashing
     StringBuilder data = new StringBuilder();
     data.append(message);
 
@@ -173,15 +133,8 @@ public class MiniGit {
         }
     }
 
-<<<<<<< HEAD:src/MiniGit.java
-    //  STEP 2: Generate hash (instead of timestamp)
     String commitId = HashUtil.generateHash(data.toString());
 
-    //  STEP 3: Create commit folder using hash
-=======
-    String commitId = HashUtil.generateHash(data.toString());
-
->>>>>>> origin/main:MiniGit.java
     File newCommit = new File(commitsDir, commitId);
     newCommit.mkdir();
 
@@ -208,7 +161,7 @@ public class MiniGit {
         file.delete();
     }
 
-    // ✅ Update branch pointer
+    // Update branch pointer
     String currentBranch = HeadManager.getCurrentBranch();
     File branchFile = new File(".minigit/branches/" + currentBranch);
 
@@ -368,11 +321,9 @@ public static void status() {
       case "checkout":
         CheckoutCommand.execute(args);
         break;
-<<<<<<< HEAD:src/MiniGit.java
       case "merge":
         MergeCommand.execute(args);
       break;
-=======
       case "stash":
         if (args.length > 1 && args[1].equals("apply")) {
             StashCommand.apply();
@@ -380,7 +331,6 @@ public static void status() {
             StashCommand.save();
         }
         break;
->>>>>>> origin/main:MiniGit.java
         
       default:
         System.out.println("Unknown command: " + command);
