@@ -192,6 +192,7 @@ private static String createInitialCommit() throws IOException {
         System.out.println("No commits found.");
         return;
     }
+    
 
     Arrays.sort(commits, (a, b) -> b.getName().compareTo(a.getName()));
 
