@@ -1,8 +1,6 @@
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
-import java.text.SimpleDateFormat;
-import java.security.MessageDigest;
 import commands.BranchCommand;
 import commands.CheckoutCommand;
 import commands.StashCommand;
@@ -250,13 +248,35 @@ public class MiniGit {
         }
     }
 
+    // Find repository root (where .minigit/ folder is)
+    private static File findRepositoryRoot() {
+        File current = new File(".").getAbsoluteFile();
+
+        while (current != null) {
+            File minigit = new File(current, ".minigit");
+            if (minigit.exists() && minigit.isDirectory()) {
+                return current; // Found repo root
+            }
+            current = current.getParentFile();
+        }
+
+        return new File("."); // Fallback to current directory
+    }
+
     // Helper method to check if file content has changed
-    private static boolean fileHasChanged(String filename, String commitId) throws IOException {
+    private static boolean fileHasChanged(String filename, String commitId, File repoRoot) throws IOException {
         if (commitId == null)
             return false;
 
-        File workingFile = new File(filename);
+        // Use absolute paths from repo root
+        File workingFile = new File(repoRoot, filename);
         File committedFile = new File(".minigit/commits/" + commitId + "/" + filename);
+
+        System.out.println("[DEBUG fileHasChanged] Checking: " + filename);
+        System.out.println("[DEBUG fileHasChanged] Working file: " + workingFile.getAbsolutePath() + " exists: "
+                + workingFile.exists());
+        System.out.println("[DEBUG fileHasChanged] Committed file: " + committedFile.getAbsolutePath() + " exists: "
+                + committedFile.exists());
 
         if (!workingFile.exists() || !committedFile.exists()) {
             return false;
@@ -265,7 +285,89 @@ public class MiniGit {
         byte[] workingContent = Files.readAllBytes(workingFile.toPath());
         byte[] committedContent = Files.readAllBytes(committedFile.toPath());
 
-        return !Arrays.equals(workingContent, committedContent);
+        boolean changed = !Arrays.equals(workingContent, committedContent);
+        System.out.println("[DEBUG fileHasChanged] Changed: " + changed);
+
+        return changed;
+    }
+
+    // Recursive helper to find all committed files (excluding meta.txt)
+    private static void findAllCommittedFiles(File dir, Set<String> fileList, String commitDirPath) {
+        File[] files = dir.listFiles();
+
+        if (files == null)
+            return;
+
+        for (File file : files) {
+            // Skip meta.txt
+            if (file.getName().equals("meta.txt"))
+                continue;
+
+            if (file.isDirectory()) {
+                // Recurse into subdirectories
+                findAllCommittedFiles(file, fileList, commitDirPath);
+            } else {
+                // Get relative path from commit directory
+                try {
+                    Path filePath = file.toPath().toAbsolutePath();
+                    Path commitPath = new File(commitDirPath).toPath().toAbsolutePath();
+                    String relativePath = commitPath.relativize(filePath).toString();
+
+                    // Normalize path separators to forward slashes for consistency
+                    relativePath = relativePath.replace("\\", "/");
+
+                    System.out.println("[DEBUG findAllCommittedFiles] Added: " + relativePath);
+                    fileList.add(relativePath);
+                } catch (Exception e) {
+                    // Fallback
+                    System.out.println("[DEBUG findAllCommittedFiles] Using fallback for: " + file.getName());
+                    fileList.add(file.getName());
+                }
+            }
+        }
+    }
+
+    // Recursive helper to find all files in directory
+    private static void findAllFiles(File dir, Set<String> fileList, String rootPath) {
+        File[] files = dir.listFiles();
+
+        if (files == null)
+            return;
+
+        for (File file : files) {
+            // Skip .minigit and other system folders
+            if (file.getName().equals(".minigit"))
+                continue;
+
+            if (file.isDirectory()) {
+                // Recurse into subdirectories
+                findAllFiles(file, fileList, rootPath);
+            } else {
+                // Skip source and compiled files
+                if (file.getName().endsWith(".java"))
+                    continue;
+                if (file.getName().endsWith(".class"))
+                    continue;
+
+                // Get relative path from root using Path API for cross-platform compatibility
+                try {
+                    Path filePath = file.toPath().toAbsolutePath();
+                    Path rootDirPath = new File(rootPath).toPath().toAbsolutePath();
+                    String relativePath = rootDirPath.relativize(filePath).toString();
+
+                    // Normalize path separators to forward slashes for consistency
+                    relativePath = relativePath.replace("\\", "/");
+
+                    System.out.println(
+                            "[DEBUG findAllFiles] Added: " + relativePath + " (from: " + file.getAbsolutePath() + ")");
+                    fileList.add(relativePath);
+                } catch (Exception e) {
+                    // Fallback to simple filename if path calculation fails
+                    System.out.println("[DEBUG findAllFiles] Using fallback for: " + file.getName());
+                    fileList.add(file.getName());
+                }
+            }
+        }
     }
 
     // status
@@ -285,24 +387,26 @@ public class MiniGit {
         System.out.println("Current Branch: " + currentBranch + "\n");
 
         try {
-            // Get last commit files
+            // Find repository root
+            File repoRoot = findRepositoryRoot();
+            System.out.println("[DEBUG] Repository root: " + repoRoot.getAbsolutePath());
+
+            // Get last commit files (recursively, including subdirectories)
             String lastCommitId = getLastCommitId();
+            System.out.println("[DEBUG] Last commit ID: " + lastCommitId);
+
             File lastCommitDir = lastCommitId != null ? new File(".minigit/commits/" + lastCommitId) : null;
             Set<String> committedFiles = new HashSet<>();
 
             if (lastCommitDir != null && lastCommitDir.exists()) {
-                File[] files = lastCommitDir.listFiles();
-                if (files != null) {
-                    for (File f : files) {
-                        if (!f.getName().equals("meta.txt")) {
-                            committedFiles.add(f.getName());
-                        }
-                    }
-                }
+                // Recursively get all files from commit directory
+                findAllCommittedFiles(lastCommitDir, committedFiles, lastCommitDir.getAbsolutePath());
+                System.out.println("[DEBUG] Committed files: " + committedFiles);
+            } else {
+                System.out.println("[DEBUG] No commit directory found");
             }
 
             File stagingDir = new File(".minigit/staging");
-            File workingDir = new File(".");
 
             // Staged Files
             System.out.println("Staged Files:");
@@ -312,8 +416,9 @@ public class MiniGit {
 
             if (stagedFiles != null && stagedFiles.length > 0) {
                 for (File file : stagedFiles) {
-                    System.out.println("- " + file.getName());
-                    stagedNames.add(file.getName());
+                    String normalizedName = file.getName().replace("\\", "/");
+                    System.out.println("- " + normalizedName);
+                    stagedNames.add(normalizedName);
                 }
             } else {
                 System.out.println("No files staged.");
@@ -324,21 +429,27 @@ public class MiniGit {
             boolean foundModified = false;
 
             for (String filename : committedFiles) {
-                File workingFile = new File(workingDir, filename);
+                // Use absolute path from repo root
+                File workingFile = new File(repoRoot, filename);
 
                 // Skip if it's staged
                 if (stagedNames.contains(filename))
                     continue;
 
+                System.out.println("[DEBUG] Checking modified: " + filename + " exists: " + workingFile.exists());
+
                 // Check if file exists and has changed
                 if (workingFile.exists()) {
                     try {
-                        if (fileHasChanged(filename, lastCommitId)) {
+                        boolean changed = fileHasChanged(filename, lastCommitId, repoRoot);
+                        System.out.println("[DEBUG] File " + filename + " changed: " + changed);
+
+                        if (changed) {
                             System.out.println("- " + filename);
                             foundModified = true;
                         }
                     } catch (IOException e) {
-                        // Skip files with read errors
+                        System.out.println("[DEBUG] Error checking " + filename + ": " + e.getMessage());
                     }
                 }
             }
@@ -349,27 +460,25 @@ public class MiniGit {
 
             // Untracked Files
             System.out.println("\nUntracked Files:");
-            File[] workingFiles = workingDir.listFiles();
+
+            // Get all files recursively from repository root
+            Set<String> allWorkingFiles = new HashSet<>();
+            findAllFiles(repoRoot, allWorkingFiles, repoRoot.getAbsolutePath());
+            System.out.println("[DEBUG] All working files: " + allWorkingFiles);
 
             boolean foundUntracked = false;
 
-            if (workingFiles != null) {
-                for (File file : workingFiles) {
+            for (String filename : allWorkingFiles) {
+                // Untracked = not staged AND not in committed files
+                boolean isStaged = stagedNames.contains(filename);
+                boolean isCommitted = committedFiles.contains(filename);
 
-                    if (file.getName().equals(".minigit"))
-                        continue;
-                    if (file.getName().endsWith(".java"))
-                        continue;
-                    if (file.getName().endsWith(".class"))
-                        continue;
-                    if (file.isDirectory())
-                        continue;
+                System.out.println(
+                        "[DEBUG] File: " + filename + " | Staged: " + isStaged + " | Committed: " + isCommitted);
 
-                    // Untracked = not staged AND not in committed files
-                    if (!stagedNames.contains(file.getName()) && !committedFiles.contains(file.getName())) {
-                        System.out.println("- " + file.getName());
-                        foundUntracked = true;
-                    }
+                if (!isStaged && !isCommitted) {
+                    System.out.println("- " + filename);
+                    foundUntracked = true;
                 }
             }
 
