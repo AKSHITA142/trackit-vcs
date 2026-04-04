@@ -136,7 +136,29 @@ public class MiniGit {
         File newCommit = new File(commitsDir, commitId);
         newCommit.mkdir();
 
-        // Copy files
+        try {
+            // Step 1: Copy all files from last commit (complete snapshot)
+            String lastCommitId = getLastCommitId();
+            if (lastCommitId != null) {
+                File lastCommitDir = new File(commitsDir, lastCommitId);
+                if (lastCommitDir.exists()) {
+                    File[] lastFiles = lastCommitDir.listFiles();
+                    if (lastFiles != null) {
+                        for (File file : lastFiles) {
+                            // Skip meta.txt, copy everything else
+                            if (!file.getName().equals("meta.txt")) {
+                                File dest = new File(newCommit, file.getName());
+                                Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error copying previous commit files.");
+        }
+
+        // Step 2: Copy staged files (overwrite if changed)
         for (File file : stagedFiles) {
             File dest = new File(newCommit, file.getName());
             try {
@@ -360,6 +382,73 @@ public class MiniGit {
         }
     }
 
+    // Reset to a specific commit (hard reset - restore entire codebase)
+    public static void reset(String commitId) {
+        File commitsDir = new File(".minigit/commits");
+        File commitDir = new File(commitsDir, commitId);
+
+        if (!commitDir.exists()) {
+            System.out.println("Commit not found: " + commitId);
+            return;
+        }
+
+        try {
+            // Step 1: Clear current working directory (keep .minigit and .java files)
+            File workingDir = new File(".");
+            File[] workingFiles = workingDir.listFiles();
+
+            if (workingFiles != null) {
+                for (File file : workingFiles) {
+                    if (file.getName().equals(".minigit"))
+                        continue;
+                    if (file.getName().endsWith(".java"))
+                        continue;
+                    if (file.getName().endsWith(".class"))
+                        continue;
+                    if (file.isDirectory())
+                        continue;
+
+                    file.delete();
+                }
+            }
+
+            // Step 2: Copy all files from the commit to working directory
+            File[] commitFiles = commitDir.listFiles();
+
+            if (commitFiles != null) {
+                for (File file : commitFiles) {
+                    if (file.getName().equals("meta.txt"))
+                        continue;
+
+                    File dest = new File(workingDir, file.getName());
+                    Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+
+            // Step 3: Clear staging area
+            File stagingDir = new File(".minigit/staging");
+            File[] stagedFiles = stagingDir.listFiles();
+            if (stagedFiles != null) {
+                for (File file : stagedFiles) {
+                    file.delete();
+                }
+            }
+
+            // Step 4: Update branch pointer to this commit
+            String currentBranch = HeadManager.getCurrentBranch();
+            File branchFile = new File(".minigit/branches/" + currentBranch);
+
+            try (FileWriter writer = new FileWriter(branchFile)) {
+                writer.write(commitId);
+            }
+
+            System.out.println("HEAD is now at " + commitId.substring(0, 7) + ". Working directory restored.");
+
+        } catch (IOException e) {
+            System.out.println("Error during reset: " + e.getMessage());
+        }
+    }
+
     public static void main(String[] args) {
 
         if (args.length == 0) {
@@ -408,6 +497,13 @@ public class MiniGit {
                     StashCommand.apply();
                 } else {
                     StashCommand.save();
+                }
+                break;
+            case "reset":
+                if (args.length < 2) {
+                    System.out.println("Please provide a commit ID");
+                } else {
+                    reset(args[1]);
                 }
                 break;
 
